@@ -1,0 +1,271 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Primitive Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserPublic(data) {
+      return data.keys().hasAll([
+        'uid', 'displayName', 'photoURL', 'elo', 'wins', 'losses',
+        'draws', 'gamesPlayed', 'titleBadge', 'preferredBoard', 'preferredPieces', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'displayName', 'photoURL', 'elo', 'wins', 'losses',
+        'draws', 'gamesPlayed', 'titleBadge', 'preferredBoard', 'preferredPieces', 'updatedAt'
+      ]) &&
+      isValidId(data.uid) &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+      data.photoURL is string && data.photoURL.size() <= 500 &&
+      data.elo is int && data.elo >= 100 && data.elo <= 4000 &&
+      data.wins is int && data.wins >= 0 && data.wins <= 100000 &&
+      data.losses is int && data.losses >= 0 && data.losses <= 100000 &&
+      data.draws is int && data.draws >= 0 && data.draws <= 100000 &&
+      data.gamesPlayed is int && data.gamesPlayed >= 0 && data.gamesPlayed <= 300000 &&
+      data.titleBadge is string && data.titleBadge.size() <= 16 &&
+      data.titleBadge in ['GM', 'IM', 'FM', 'CM', 'NM', 'CLUB'] &&
+      data.preferredBoard is string && data.preferredBoard.size() >= 1 && data.preferredBoard.size() <= 32 &&
+      data.preferredPieces is string && data.preferredPieces.size() >= 1 && data.preferredPieces.size() <= 32 &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+      data.keys().hasOnly(['uid', 'email', 'createdAt']) &&
+      isValidId(data.uid) &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasAll([
+        'matchId', 'whiteUid', 'whiteName', 'whiteElo', 'blackUid', 'blackName', 'blackElo',
+        'fen', 'pgn', 'turn', 'status', 'winner', 'timeControl', 'whiteTimeMs', 'blackTimeMs',
+        'lastMoveSan', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'matchId', 'whiteUid', 'whiteName', 'whiteElo', 'blackUid', 'blackName', 'blackElo',
+        'fen', 'pgn', 'turn', 'status', 'winner', 'timeControl', 'whiteTimeMs', 'blackTimeMs',
+        'lastMoveSan', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.matchId) &&
+      isValidId(data.whiteUid) &&
+      data.whiteName is string && data.whiteName.size() >= 1 && data.whiteName.size() <= 50 &&
+      data.whiteElo is int && data.whiteElo >= 100 && data.whiteElo <= 4000 &&
+      data.blackUid is string && data.blackUid.size() <= 128 &&
+      data.blackName is string && data.blackName.size() <= 50 &&
+      data.blackElo is int && data.blackElo >= 0 && data.blackElo <= 4000 &&
+      data.fen is string && data.fen.size() >= 15 && data.fen.size() <= 120 &&
+      data.pgn is string && data.pgn.size() <= 5000 &&
+      data.turn is string && data.turn.size() == 1 && data.turn in ['w', 'b'] &&
+      data.status is string && data.status.size() <= 16 && data.status in ['waiting', 'active', 'finished'] &&
+      data.winner is string && data.winner.size() <= 16 && data.winner in ['none', 'w', 'b', 'draw'] &&
+      data.timeControl is string && data.timeControl.size() <= 24 &&
+      data.timeControl in ['bullet_1', 'blitz_3', 'rapid_10', 'classical_15', 'chess960'] &&
+      data.whiteTimeMs is int && data.whiteTimeMs >= 0 && data.whiteTimeMs <= 7200000 &&
+      data.blackTimeMs is int && data.blackTimeMs >= 0 && data.blackTimeMs <= 7200000 &&
+      data.lastMoveSan is string && data.lastMoveSan.size() <= 16 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidMatchChatMessage(data) {
+      return data.keys().hasAll(['senderUid', 'senderName', 'text', 'createdAt']) &&
+      data.keys().hasOnly(['senderUid', 'senderName', 'text', 'createdAt']) &&
+      isValidId(data.senderUid) &&
+      data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 50 &&
+      data.text is string && data.text.size() >= 1 && data.text.size() <= 280 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidFriendRequest(data) {
+      return data.keys().hasAll(['fromUid', 'fromName', 'fromElo', 'toUid', 'toName', 'status', 'createdAt', 'updatedAt']) &&
+      data.keys().hasOnly(['fromUid', 'fromName', 'fromElo', 'toUid', 'toName', 'status', 'createdAt', 'updatedAt']) &&
+      isValidId(data.fromUid) &&
+      data.fromName is string && data.fromName.size() >= 1 && data.fromName.size() <= 50 &&
+      data.fromElo is int && data.fromElo >= 100 && data.fromElo <= 4000 &&
+      isValidId(data.toUid) &&
+      data.toName is string && data.toName.size() >= 1 && data.toName.size() <= 50 &&
+      data.status is string && data.status.size() <= 16 && data.status in ['pending', 'accepted', 'declined'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Rules
+
+    // Public Profiles & Leaderboard (No PII)
+    match /users_public/{userId} {
+      allow get: if isValidId(userId) && existing().elo >= 100;
+      allow list: if existing().elo >= 100;
+      allow create: if isVerifiedUser() &&
+        isValidId(userId) &&
+        userId == request.auth.uid &&
+        isValidUserPublic(incoming()) &&
+        incoming().uid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isValidUserPublic(incoming()) &&
+        userId == request.auth.uid &&
+        incoming().uid == existing().uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'photoURL', 'elo', 'wins', 'losses',
+          'draws', 'gamesPlayed', 'titleBadge', 'preferredBoard', 'preferredPieces', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // Isolated Private PII
+    match /users/{userId}/private/{docId} {
+      allow get: if isVerifiedUser() && isValidId(userId) && isValidId(docId) && request.auth.uid == userId;
+      allow list: if isVerifiedUser() && request.auth.uid == userId && existing().uid == request.auth.uid;
+      allow create: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isValidId(docId) &&
+        request.auth.uid == userId &&
+        isValidUserPrivate(incoming()) &&
+        incoming().uid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isValidId(docId) &&
+        isValidUserPrivate(incoming()) &&
+        request.auth.uid == userId &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['email']);
+      allow delete: if false;
+    }
+
+    // Matches (Real-time Multiplayer & Archive)
+    match /matches/{matchId} {
+      allow get: if isValidId(matchId) && existing().status in ['waiting', 'active', 'finished'];
+      allow list: if existing().status in ['waiting', 'active', 'finished'];
+      allow create: if isVerifiedUser() &&
+        isValidId(matchId) &&
+        isValidMatch(incoming()) &&
+        incoming().matchId == matchId &&
+        incoming().whiteUid == request.auth.uid &&
+        incoming().status in ['waiting', 'active'] &&
+        incoming().winner == 'none' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users_public/$(request.auth.uid));
+
+      allow update: if isVerifiedUser() &&
+        isValidId(matchId) &&
+        isValidMatch(incoming()) &&
+        existing().status != 'finished' &&
+        incoming().matchId == existing().matchId &&
+        incoming().whiteUid == existing().whiteUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Action 1: Second player joins waiting match
+          (
+            existing().status == 'waiting' &&
+            existing().whiteUid != request.auth.uid &&
+            incoming().blackUid == request.auth.uid &&
+            incoming().status == 'active' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['blackUid', 'blackName', 'blackElo', 'status', 'updatedAt'])
+          ) ||
+          // Action 2: Participant makes a move or finishes game
+          (
+            existing().status == 'active' &&
+            (existing().whiteUid == request.auth.uid || existing().blackUid == request.auth.uid) &&
+            incoming().blackUid == existing().blackUid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'fen', 'pgn', 'turn', 'status', 'winner', 'whiteTimeMs', 'blackTimeMs', 'lastMoveSan', 'updatedAt'
+            ])
+          ) ||
+          // Action 3: Creator cancels waiting match
+          (
+            existing().status == 'waiting' &&
+            existing().whiteUid == request.auth.uid &&
+            incoming().status == 'finished' &&
+            incoming().winner == 'draw' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'winner', 'updatedAt'])
+          )
+        );
+      allow delete: if false;
+
+      // Subcollection: Match Chat Messages (Master Gate Relational Sync)
+      match /messages/{messageId} {
+        allow get: if isVerifiedUser() &&
+          isValidId(matchId) &&
+          isValidId(messageId) &&
+          exists(/databases/$(database)/documents/matches/$(matchId));
+        allow list: if isVerifiedUser() &&
+          existing().text.size() >= 1;
+        allow create: if isVerifiedUser() &&
+          isValidId(matchId) &&
+          isValidId(messageId) &&
+          isValidMatchChatMessage(incoming()) &&
+          incoming().senderUid == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          exists(/databases/$(database)/documents/matches/$(matchId)) && (
+            get(/databases/$(database)/documents/matches/$(matchId)).data.whiteUid == request.auth.uid ||
+            get(/databases/$(database)/documents/matches/$(matchId)).data.blackUid == request.auth.uid
+          );
+        allow update, delete: if false;
+      }
+    }
+
+    // Social Friend Requests
+    match /friend_requests/{requestId} {
+      allow get: if isVerifiedUser() &&
+        isValidId(requestId) &&
+        (existing().fromUid == request.auth.uid || existing().toUid == request.auth.uid);
+      allow list: if isVerifiedUser() &&
+        (existing().fromUid == request.auth.uid || existing().toUid == request.auth.uid);
+      allow create: if isVerifiedUser() &&
+        isValidId(requestId) &&
+        isValidFriendRequest(incoming()) &&
+        incoming().fromUid == request.auth.uid &&
+        incoming().toUid != request.auth.uid &&
+        incoming().status == 'pending' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users_public/$(incoming().fromUid)) &&
+        exists(/databases/$(database)/documents/users_public/$(incoming().toUid));
+      allow update: if isVerifiedUser() &&
+        isValidId(requestId) &&
+        isValidFriendRequest(incoming()) &&
+        existing().status == 'pending' &&
+        existing().toUid == request.auth.uid &&
+        incoming().fromUid == existing().fromUid &&
+        incoming().toUid == existing().toUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().status in ['accepted', 'declined'] &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isVerifiedUser() &&
+        isValidId(requestId) &&
+        (existing().fromUid == request.auth.uid || existing().toUid == request.auth.uid);
+    }
+  }
+}

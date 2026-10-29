@@ -1,0 +1,6 @@
+{
+  "name": "Grandmaster Arena: 2D Chess & Analysis",
+  "description": "Competitive 2D Chess platform with customizable boards and piece sets, engine evaluation, move history, real-time multiplayer via Firebase, global leaderboards, social clubs, and AI coaching.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public profile and Elo rating data for a chess player",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "elo": { "type": "integer" },
+        "wins": { "type": "integer" },
+        "losses": { "type": "integer" },
+        "draws": { "type": "integer" },
+        "gamesPlayed": { "type": "integer" },
+        "titleBadge": { "type": "string", "maxLength": 16, "enum": ["GM", "IM", "FM", "CM", "NM", "CLUB"] },
+        "preferredBoard": { "type": "string", "maxLength": 32 },
+        "preferredPieces": { "type": "string", "maxLength": 32 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "photoURL", "elo", "wins", "losses", "draws", "gamesPlayed", "titleBadge", "preferredBoard", "preferredPieces", "updatedAt"]
+    },
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Private PII data for a chess player isolated from public profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 254 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "Real-time multiplayer or archived chess match record",
+      "type": "object",
+      "properties": {
+        "matchId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "whiteUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "whiteName": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "whiteElo": { "type": "integer" },
+        "blackUid": { "type": "string", "maxLength": 128 },
+        "blackName": { "type": "string", "maxLength": 50 },
+        "blackElo": { "type": "integer" },
+        "fen": { "type": "string", "minLength": 15, "maxLength": 120 },
+        "pgn": { "type": "string", "maxLength": 5000 },
+        "turn": { "type": "string", "maxLength": 1, "enum": ["w", "b"] },
+        "status": { "type": "string", "maxLength": 16, "enum": ["waiting", "active", "finished"] },
+        "winner": { "type": "string", "maxLength": 16, "enum": ["none", "w", "b", "draw"] },
+        "timeControl": { "type": "string", "maxLength": 24, "enum": ["bullet_1", "blitz_3", "rapid_10", "classical_15", "chess960"] },
+        "whiteTimeMs": { "type": "integer" },
+        "blackTimeMs": { "type": "integer" },
+        "lastMoveSan": { "type": "string", "maxLength": 16 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["matchId", "whiteUid", "whiteName", "whiteElo", "blackUid", "blackName", "blackElo", "fen", "pgn", "turn", "status", "winner", "timeControl", "whiteTimeMs", "blackTimeMs", "lastMoveSan", "createdAt", "updatedAt"]
+    },
+    "MatchChatMessage": {
+      "title": "MatchChatMessage",
+      "description": "Chat message inside a specific match subcollection",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 280 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderUid", "senderName", "text", "createdAt"]
+    },
+    "FriendRequest": {
+      "title": "FriendRequest",
+      "description": "Social friend request or active friendship between two users",
+      "type": "object",
+      "properties": {
+        "fromUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fromName": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "fromElo": { "type": "integer" },
+        "toUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "toName": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "status": { "type": "string", "maxLength": 16, "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fromUid", "fromName", "fromElo", "toUid", "toName", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users_public/{userId}": {
+      "schema": { "$ref": "#/entities/UserPublic" },
+      "description": "Public player profile and leaderboard stats"
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Isolated private PII data for a player"
+    },
+    "/matches/{matchId}": {
+      "schema": { "$ref": "#/entities/Match" },
+      "description": "Multiplayer and saved chess matches"
+    },
+    "/matches/{matchId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/MatchChatMessage" },
+      "description": "In-game chat messages between match participants"
+    },
+    "/friend_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/FriendRequest" },
+      "description": "Friend requests and friendships between players"
+    }
+  }
+}
